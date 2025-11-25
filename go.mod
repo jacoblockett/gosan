@@ -1,3 +1,3 @@
-module github.com/jacoblockett/gosanitize
+module github.com/jacoblockett/gosan
 
 go 1.23.3
