@@ -7,10 +7,10 @@ Utility functions to sanitize strings in Go.
 ### Installation
 
 ```bash
-go get github.com/jacoblockett/gosan
+go get github.com/jacoblockett/gosan/v2
 ```
 
-You can read the godoc [here](https://pkg.go.dev/github.com/jacoblockett/gosan) for detailed documentation.
+You can read the godoc [here](https://pkg.go.dev/github.com/jacoblockett/gosan/v2) for detailed documentation.
 
 ### Quickstart
 
