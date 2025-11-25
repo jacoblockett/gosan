@@ -1,13 +1,13 @@
-package sanitizefilename
+package gosan
 
 import (
 	"testing"
 )
 
-func TestSanitizeWindows(t *testing.T) {
-	simulation = "windows"
+func TestSanitizeWindowsFilename(t *testing.T) {
+	Simulation = "windows"
 	defer func() {
-		simulation = ""
+		Simulation = ""
 	}()
 	tests := []struct {
 		input    string
@@ -25,17 +25,17 @@ func TestSanitizeWindows(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := Sanitize(test.input)
+		result := Filename(test.input, "")
 		if result != test.expected {
 			t.Errorf("Sanitize(\"%s\") = \"%s\"; expected \"%s\"", test.input, result, test.expected)
 		}
 	}
 }
 
-func TestSanitizeLinuxAndUnix(t *testing.T) {
-	simulation = "not windows"
+func TestSanitizeLinuxAndUnixFilename(t *testing.T) {
+	Simulation = "not windows"
 	defer func() {
-		simulation = ""
+		Simulation = ""
 	}()
 	tests := []struct {
 		input    string
@@ -52,7 +52,7 @@ func TestSanitizeLinuxAndUnix(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := Sanitize(test.input)
+		result := Filename(test.input, "")
 		if result != test.expected {
 			t.Errorf("Sanitize(\"%s\") = \"%s\"; expected \"%s\"", test.input, result, test.expected)
 		}

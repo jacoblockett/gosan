@@ -1,3 +1,3 @@
-module github.com/jacoblockett/sanitizefilename
+module github.com/jacoblockett/gosanitize
 
 go 1.23.3
