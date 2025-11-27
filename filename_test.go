@@ -4,57 +4,47 @@ import (
 	"testing"
 )
 
-func TestSanitizeWindowsFilename(t *testing.T) {
-	Simulation = "windows"
-	defer func() {
-		Simulation = ""
-	}()
+func TestFilename(t *testing.T) {
 	tests := []struct {
 		input    string
+		opts     *FilenameOptions
 		expected string
 	}{
-		{"   ", ""},
-		{"example", "example"},
-		{"abc.txt", "abc.txt"},
-		{"<>:\"/\\|?*abc.txt", "abc.txt"},
-		{"abc\x1f.txt", "abc.txt"},
-		{"abc\x7f.txt", "abc.txt"},
-		{"NUL", ""},
-		{"NUL.txt", ".txt"},
-		{"NUL.tar.gz", ".tar.gz"},
+		// Windows
+		{"   ", &FilenameOptions{Environment: Windows}, ""},
+		{"example", &FilenameOptions{Environment: Windows}, "example"},
+		{"abc.txt", &FilenameOptions{Environment: Windows}, "abc.txt"},
+		{"<>:\"/\\|?*abc.txt", &FilenameOptions{Environment: Windows}, "abc.txt"},
+		{"abc\x1f.txt", &FilenameOptions{Environment: Windows}, "abc.txt"},
+		{"abc\x7f.txt", &FilenameOptions{Environment: Windows}, "abc.txt"},
+		{"abc\x7f.txt", &FilenameOptions{Environment: Windows, Replacement: "_x_"}, "abc_x_.txt"},
+		{"NUL", &FilenameOptions{Environment: Windows}, "RESERVED_NUL"},
+		{"nul", &FilenameOptions{Environment: Windows}, "RESERVED_nul"},
+		{"NUL.txt", &FilenameOptions{Environment: Windows}, "RESERVED_NUL.txt"},
+		{"NUL.tar.gz", &FilenameOptions{Environment: Windows}, "RESERVED_NUL.tar.gz"},
+		{"file. ", &FilenameOptions{Environment: Windows}, "file"},
+		{"file .", &FilenameOptions{Environment: Windows}, "file"},
+		{".  . .. .", &FilenameOptions{Environment: Windows}, ""},
+		{"NUL", &FilenameOptions{Environment: Windows, ReservedPrefix: "r_"}, "r_NUL"},
+		{"<>:\"/\\|?*abc.txt", &FilenameOptions{Environment: Windows, ReplaceWithVisuallySimilarRunes: true}, "˂˃꞉＂∕∖ǀ？∗abc.txt"},
+		// Linux/Darwin
+		{"   ", &FilenameOptions{Environment: Linux}, "   "},
+		{"example", &FilenameOptions{Environment: Linux}, "example"},
+		{"abc.txt", &FilenameOptions{Environment: Linux}, "abc.txt"},
+		{"abc\x1f.txt", &FilenameOptions{Environment: Linux}, "abc.txt"},
+		{"abc\x7f.txt", &FilenameOptions{Environment: Linux}, "abc.txt"},
+		{"abc\x7f.txt", &FilenameOptions{Environment: Linux, Replacement: "_x_"}, "abc_x_.txt"},
+		{"/..", &FilenameOptions{Environment: Linux, Replacement: "x"}, "x.."},
+		{".", &FilenameOptions{Environment: Linux}, "RESERVED_."},
+		{"..", &FilenameOptions{Environment: Linux}, "RESERVED_.."},
+		{"/..", &FilenameOptions{Environment: Linux}, "RESERVED_.."},
+		{".", &FilenameOptions{Environment: Linux, ReservedPrefix: "r_"}, "r_."},
 	}
 
 	for _, test := range tests {
-		result := Filename(test.input, "")
+		result, _ := Filename(test.input, test.opts)
 		if result != test.expected {
-			t.Errorf("Sanitize(\"%s\") = \"%s\"; expected \"%s\"", test.input, result, test.expected)
-		}
-	}
-}
-
-func TestSanitizeLinuxAndUnixFilename(t *testing.T) {
-	Simulation = "not windows"
-	defer func() {
-		Simulation = ""
-	}()
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"   ", "   "},
-		{"example", "example"},
-		{"abc.txt", "abc.txt"},
-		{"abc\x1f.txt", "abc.txt"},
-		{"abc\x7f.txt", "abc.txt"},
-		{".", ""},
-		{"..", ""},
-		{"/..", ""},
-	}
-
-	for _, test := range tests {
-		result := Filename(test.input, "")
-		if result != test.expected {
-			t.Errorf("Sanitize(\"%s\") = \"%s\"; expected \"%s\"", test.input, result, test.expected)
+			t.Errorf("[%s] Sanitize(\"%s\") = \"%s\"; expected \"%s\"", test.opts.Environment, test.input, result, test.expected)
 		}
 	}
 }

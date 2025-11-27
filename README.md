@@ -7,10 +7,10 @@ Utility functions to sanitize strings in Go.
 ### Installation
 
 ```bash
-go get github.com/jacoblockett/gosan/v2
+go get github.com/jacoblockett/gosan/v3
 ```
 
-You can read the godoc [here](https://pkg.go.dev/github.com/jacoblockett/gosan/v2) for detailed documentation.
+You can read the godoc [here](https://pkg.go.dev/github.com/jacoblockett/gosan/v3) for detailed documentation.
 
 ### Quickstart
 
@@ -22,14 +22,16 @@ import "github.com/jacoblockett/gosan"
 func main() {
 	// Assuming a Windows environment
 	filename := "<>:\"/\\|?*abc.txt" // "<>:"/\|?*abc.txt" without escape chars
-	sanitized := gosan.Filename(filename)
+	opts := &gosan.FilenameOptions{Environment: gosan.Windows}
+	sanitized := gosan.Filename(filename, opts)
 
 	fmt.Println(sanitized) // "abc.txt"
 
 	// Assuming a Linux/Unix environment
 	filename := "/.."
-	sanitized := gosan.Filename(filename)
+	opts := &gosan.FilenameOptions{Environment: gosan.Linux, Replacement: "x"}
+	sanitized := gosan.Filename(filename, opts)
 
-	fmt.Println(sanitized) // ""
+	fmt.Println(sanitized) // "x.."
 }
 ```

@@ -1,35 +1,103 @@
 package gosan
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"unicode"
 )
 
-var Simulation string
+const (
+	Windows = "windows"
+	Linux   = "linux"
+	Darwin  = "darwin"
+)
 
-func sanitizeWindows(filename string, replacementStr string) string {
+var ErrUnsupportedGOOS = fmt.Errorf("%s is not supported", runtime.GOOS)
+
+type FilenameOptions struct {
+	// Which environment should sanitization consider. Default=runtime.GOOS
+	Environment string
+	// String to use instead of illegal character. Default=""
+	Replacement string
+	// Instead of using the Replacement, attempts to replace illegal
+	// characters with a visually similar, legal character. Default=false
+	ReplaceWithVisuallySimilarRunes bool
+	// String to prepend to reserved names. Default='RESERVED_'
+	ReservedPrefix string
+}
+
+func appendDefaultOpts(incoming *FilenameOptions) *FilenameOptions {
+	opts := &FilenameOptions{
+		Environment:                     runtime.GOOS,
+		Replacement:                     "",
+		ReplaceWithVisuallySimilarRunes: false,
+		ReservedPrefix:                  "RESERVED_",
+	}
+
+	if incoming.Environment != "" {
+		opts.Environment = incoming.Environment
+	}
+
+	if incoming.Replacement != "" {
+		opts.Replacement = incoming.Replacement
+	}
+
+	if incoming.ReplaceWithVisuallySimilarRunes {
+		opts.ReplaceWithVisuallySimilarRunes = true
+	}
+
+	if incoming.ReservedPrefix != "" {
+		opts.ReservedPrefix = incoming.ReservedPrefix
+	}
+
+	return opts
+}
+
+func sanitizeWindows(filename string, opts *FilenameOptions) string {
 	sanitized := []rune{}
-	replacement := []rune(replacementStr)
+	replacement := []rune(opts.Replacement)
 
 	// Cannot end with whitespace or "."
-	// Note: We trim this BEFORE processing. If you want these to be replaced
-	// instead of trimmed, this logic would need to move into the loop.
 	filename = strings.TrimRightFunc(filename, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '.'
 	})
 
-	// Efficiency return - trimmed filename is empty
 	if filename == "" {
 		return ""
 	}
 
 	// Illegal filename characters, printable characters
-	illRunes := map[rune]int{'<': 1, '>': 1, ':': 1, '"': 1, '/': 1, '\\': 1, '|': 1, '?': 1, '*': 1}
+	illRunes := map[rune]int{
+		'<':  1,
+		'>':  1,
+		':':  1,
+		'"':  1,
+		'/':  1,
+		'\\': 1,
+		'|':  1,
+		'?':  1,
+		'*':  1,
+	}
+	illRunesSimilar := map[rune]rune{
+		'<':  '˂', // U+02C2
+		'>':  '˃', // U+02C3
+		':':  '꞉', // U+A789
+		'"':  '＂', // U+FF02
+		'/':  '∕', // U+2215
+		'\\': '∖', // U+2216
+		'|':  'ǀ', // U+01C0
+		'?':  '？', // U+FF1F
+		'*':  '∗', // U+2217
+	}
 
 	for _, existingRune := range filename {
+		if opts.ReplaceWithVisuallySimilarRunes && illRunes[existingRune] == 1 {
+			sanitized = append(sanitized, illRunesSimilar[existingRune])
+			continue
+		}
+
 		if existingRune <= 31 || existingRune == 127 || !unicode.IsPrint(existingRune) || illRunes[existingRune] == 1 {
-			// If a replacement was provided, append it
 			if len(replacement) > 0 {
 				sanitized = append(sanitized, replacement...)
 			}
@@ -39,7 +107,6 @@ func sanitizeWindows(filename string, replacementStr string) string {
 		sanitized = append(sanitized, existingRune)
 	}
 
-	// Efficiency return - sanitized filename is empty
 	if len(sanitized) == 0 {
 		return ""
 	}
@@ -51,26 +118,23 @@ func sanitizeWindows(filename string, replacementStr string) string {
 		"LPT1": 1, "LPT2": 1, "LPT3": 1, "LPT4": 1, "LPT5": 1, "LPT6": 1, "LPT7": 1, "LPT8": 1, "LPT9": 1,
 	}
 	sanitizedStr := string(sanitized)
-	parts := strings.Split(sanitizedStr, ".") // An attempt to consider reserved names with extensions.
+	parts := strings.Split(sanitizedStr, ".") // An attempt to consider reserved names with extensions. While this isn't "illegal", things get weird, so best to avoid.
 
 	if len(parts) > 0 && illNames[strings.ToUpper(parts[0])] == 1 {
-		// Reserved names are tricky. If the filename is "CON.txt",
-		// replacing "CON" with "_" results in "_.txt", which is valid.
-		// If no replacement is provided, it stays as standard behavior (removes the name).
-		if replacementStr != "" {
-			parts[0] = replacementStr
-		} else {
-			parts[0] = ""
-		}
+		parts[0] = opts.ReservedPrefix + parts[0]
 		sanitizedStr = strings.Join(parts, ".")
 	}
 
 	return sanitizedStr
 }
 
-func sanitizeLinuxAndUnix(filename string, replacementStr string) string {
+func sanitizeLinuxAndUnix(filename string, opts *FilenameOptions) string {
+	if opts.ReservedPrefix == "" {
+		opts.ReservedPrefix = "RESERVED_"
+	}
+
 	sanitized := []rune{}
-	replacement := []rune(replacementStr)
+	replacement := []rune(opts.Replacement)
 
 	// Illegal filename characters
 	for _, existingRune := range filename {
@@ -84,7 +148,6 @@ func sanitizeLinuxAndUnix(filename string, replacementStr string) string {
 		sanitized = append(sanitized, existingRune)
 	}
 
-	// Efficiency return - sanitized filename is empty
 	if len(sanitized) == 0 {
 		return ""
 	}
@@ -93,29 +156,24 @@ func sanitizeLinuxAndUnix(filename string, replacementStr string) string {
 
 	// Reserved names
 	if sanitizedStr == "." || sanitizedStr == ".." {
-		return ""
+		sanitizedStr = opts.ReservedPrefix + sanitizedStr
 	}
 
 	return sanitizedStr
 }
 
-// Filename sanitizes the given string under the assumption it represents a filename.
-// Sanitation is OS-agnostic based on runtime or simulation. The Simulation variable
-// is exposed via gosan.Simulation.
-func Filename(filename string, replacement string) string {
-	// Check for simulation first
-	if Simulation == "windows" {
-		return sanitizeWindows(filename, replacement)
-	}
-	if Simulation != "" {
-		return sanitizeLinuxAndUnix(filename, replacement)
+// Sanitizes the given string under the assumption it represents a filename.
+// Sanitation is OS-agnostic based on runtime.
+func Filename(filename string, opts *FilenameOptions) (string, error) {
+	newOpts := appendDefaultOpts(opts)
+
+	if newOpts.Environment == Windows {
+		return sanitizeWindows(filename, newOpts), nil
 	}
 
-	// Then check for runtime OS
-	if runtime.GOOS == "windows" {
-		return sanitizeWindows(filename, replacement)
+	if newOpts.Environment == Linux || newOpts.Environment == Darwin {
+		return sanitizeLinuxAndUnix(filename, newOpts), nil
 	}
 
-	return sanitizeLinuxAndUnix(filename, replacement)
-
+	return "", ErrUnsupportedGOOS
 }
