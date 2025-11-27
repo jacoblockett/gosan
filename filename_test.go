@@ -10,6 +10,8 @@ func TestFilename(t *testing.T) {
 		opts     *FilenameOptions
 		expected string
 	}{
+		// nil opts test (will use runtime.GOOS)
+		{"abc.txt", nil, "abc.txt"},
 		// Windows
 		{"   ", &FilenameOptions{Environment: Windows}, ""},
 		{"example", &FilenameOptions{Environment: Windows}, "example"},

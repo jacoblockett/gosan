@@ -35,6 +35,10 @@ func appendDefaultOpts(incoming *FilenameOptions) *FilenameOptions {
 		ReservedPrefix:                  "RESERVED_",
 	}
 
+	if incoming == nil {
+		return opts
+	}
+
 	if incoming.Environment != "" {
 		opts.Environment = incoming.Environment
 	}
